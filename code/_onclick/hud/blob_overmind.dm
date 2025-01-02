@@ -1,6 +1,6 @@
 
 /atom/movable/screen/blob
-	icon = 'icons/mob/blob.dmi'
+	icon = 'icons/hud/actions/actions_blob.dmi'
 
 /atom/movable/screen/blob/MouseEntered(location,control,params)
 	openToolTip(usr,src,params,title = name,content = desc, theme = "blob")
@@ -131,7 +131,6 @@
 	blobpwrdisplay.icon_state = "block"
 	blobpwrdisplay.screen_loc = ui_health
 	blobpwrdisplay.mouse_opacity = MOUSE_OPACITY_TRANSPARENT
-	blobpwrdisplay.layer = ABOVE_HUD_LAYER
 	blobpwrdisplay.plane = ABOVE_HUD_PLANE
 	blobpwrdisplay.hud = src
 	infodisplay += blobpwrdisplay

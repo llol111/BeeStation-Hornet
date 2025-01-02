@@ -20,7 +20,7 @@
 	if(LAZYLEN(channels))
 		var/list/examine_text_list = list()
 		for(var/i in channels)
-			examine_text_list += "[GLOB.channel_tokens[i]] - [lowertext(i)]"
+			examine_text_list += "[GLOB.channel_tokens[i]] - [LOWER_TEXT(i)]"
 
 		. += "<span class='notice'>It can access the following channels; [jointext(examine_text_list, ", ")].</span>"
 
@@ -65,11 +65,6 @@
 	name = "science radio encryption key"
 	icon_state = "sci_cypherkey"
 	channels = list(RADIO_CHANNEL_SCIENCE = 1)
-
-/obj/item/encryptionkey/headset_medsci
-	name = "medical research radio encryption key"
-	icon_state = "medsci_cypherkey"
-	channels = list(RADIO_CHANNEL_SCIENCE = 1, RADIO_CHANNEL_MEDICAL = 1)
 
 /obj/item/encryptionkey/headset_medsec
 	name = "medical-security encryption key"

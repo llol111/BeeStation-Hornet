@@ -12,8 +12,8 @@
 	reagent = /datum/reagent/blob/reactive_spines
 
 /datum/blobstrain/reagent/reactive_spines/damage_reaction(obj/structure/blob/B, damage, damage_type, damage_flag)
-	if(damage && damage_type == BRUTE && B.obj_integrity - damage > 0) //is there any damage, is it brute, and will we be alive
-		if(damage_flag == "melee")
+	if(damage && damage_type == BRUTE && B.get_integrity() - damage > 0) //is there any damage, is it brute, and will we be alive
+		if(damage_flag == MELEE)
 			B.visible_message("<span class='boldwarning'>The blob retaliates, lashing out!</span>")
 		for(var/atom/A as() in range(1, B))
 			A.blob_act(B)

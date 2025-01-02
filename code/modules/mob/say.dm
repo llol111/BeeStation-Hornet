@@ -28,6 +28,7 @@
 /mob/verb/me_verb(message as text)
 	set name = "Me"
 	set category = "IC"
+	set desc = "Perform a custom emote. Leave blank to pick between an audible or a visible emote (Defaults to visible)."
 
 	if(GLOB.say_disabled)	//This is here to try to identify lag problems
 		to_chat(usr, "<span class='danger'>Speech is currently admin-disabled.</span>")
@@ -35,7 +36,7 @@
 
 	message = trim(copytext_char(sanitize(message), 1, MAX_MESSAGE_LEN))
 
-	usr.emote("me",1,message,TRUE)
+	usr.emote("me",EMOTE_VISIBLE|EMOTE_AUDIBLE,message,TRUE)
 
 ///Speak as a dead person (ghost etc)
 /mob/proc/say_dead(var/message)
@@ -77,8 +78,9 @@
 	if(OOC_FILTER_CHECK(message))
 		to_chat(usr, "<span class='warning'>Your message contains forbidden words.</span>")
 		return
-	var/spanned = say_quote(message)
+	var/spanned = say_quote(say_emphasis(message))
 	var/rendered = "<span class='game deadsay'><span class='prefix'>DEAD:</span> <span class='name'>[name]</span>[alt_name] <span class='message'>[emoji_parse(spanned)]</span></span>"
+	send_chat_to_discord(CHAT_TYPE_DEADCHAT, name, spanned)
 	log_talk(message, LOG_SAY, tag="DEAD")
 	if(SEND_SIGNAL(src, COMSIG_MOB_DEADSAY, message) & MOB_DEADSAY_SIGNAL_INTERCEPT)
 		return
@@ -102,7 +104,33 @@
 #define MESSAGE_MODS_LENGTH 6
 
 /**
-  * Extracts and cleans message of any extenstions at the begining of the message
+ * Checks the inputted message for a custom say emote
+ * Basically it checks every message for "|"
+ * If a message contains it then it will mark everything that came before "|" as a custom say emote, IE: "stammers|", "cackles|", "screams|", "yells|", and everything after as the message
+ * If a message contains "|" but nothing after it then it will convert everything that came before "|" into an emote
+ * If a message doesn't contain "|" then it will simply return the input as a message
+ *
+ * Example
+ * * "mutters| hello" will be marked as a custom say emote of "mutters" and the message will be "hello"
+ * * and it will appear as Joe Average mutters, "hello"
+ * * "screams|" will be marked as a custom say emote of "screams" and it will appear as Joe Average screams.
+ */
+/mob/proc/check_for_custom_say_emote(message, list/mods)
+	var/customsaypos = findtext(message, "|")
+	if(!customsaypos)
+		return message
+	if(is_banned_from(ckey, "Emote"))
+		return copytext(message, customsaypos + 1)
+	mods[MODE_CUSTOM_SAY_EMOTE] = trim_right(copytext(message, 1, customsaypos))
+	message = trim_left(copytext(message, customsaypos + 1))
+	if(!message)
+		mods[MODE_CUSTOM_SAY_ERASE_INPUT] = TRUE
+		mods[MODE_CUSTOM_SAY_EMOTE] = punctuate(mods[MODE_CUSTOM_SAY_EMOTE])
+		message = ""
+	return message
+
+/**
+  * Extracts and cleans message of any extenstions at the beginning of the message
   * Inserts the info into the passed list, returns the cleaned message
   *
   * Result can be
@@ -125,15 +153,24 @@
 		else if(key == ";" && !mods[MODE_HEADSET] && stat == CONSCIOUS)
 			mods[MODE_HEADSET] = TRUE
 		else if((key in GLOB.department_radio_prefixes) && length(message) > length(key) + 1 && !mods[RADIO_EXTENSION])
-			mods[RADIO_KEY] = lowertext(message[1 + length(key)])
-			mods[RADIO_EXTENSION] = GLOB.department_radio_keys[mods[RADIO_KEY]]
-			chop_to = length(key) + 2
-		else if(key == "," && !mods[LANGUAGE_EXTENSION])
+			key = LOWER_TEXT(message[1 + length(key)])
+			var/valid_extension = GLOB.department_radio_keys[key]
+			var/valid_say_mode = SSradio.saymodes[key]
+			if(valid_extension || valid_say_mode)
+				mods[RADIO_KEY] = key
+				mods[RADIO_EXTENSION] = GLOB.department_radio_keys[key]
+				chop_to = length(key) + 2
+			else
+				return message
+		else if(key == "," && !mods[LANGUAGE_EXTENSION]) // living/say() proc can set LANGUAGE_EXTENSION before this proc.
 			for(var/ld in GLOB.all_languages)
 				var/datum/language/LD = ld
 				if(initial(LD.key) == message[1 + length(message[1])])
 					// No, you cannot speak in xenocommon just because you know the key
 					if(!can_speak_language(LD))
+						return message
+					// you are not allowed to use metalanguage key
+					if(LD == /datum/language/metalanguage && !HAS_TRAIT(src, TRAIT_METALANGUAGE_KEY_ALLOWED))
 						return message
 					mods[LANGUAGE_EXTENSION] = LD
 					chop_to = length(key) + length(initial(LD.key)) + 1
@@ -145,3 +182,5 @@
 		if(!message)
 			return
 	return message
+
+#undef MESSAGE_MODS_LENGTH

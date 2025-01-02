@@ -93,7 +93,7 @@
 		if(bee_resources >= BEE_RESOURCE_HONEYCOMB_COST)
 			if(honeycombs.len < get_max_honeycomb())
 				bee_resources = max(bee_resources-BEE_RESOURCE_HONEYCOMB_COST, 0)
-				var/obj/item/reagent_containers/honeycomb/HC = new(src)
+				var/obj/item/reagent_containers/cup/glass/honeycomb/HC = new(src)
 				if(queen_bee.beegent)
 					HC.set_reagent(queen_bee.beegent.type)
 				honeycombs += HC
@@ -231,7 +231,7 @@
 					var/amtH = HF.honeycomb_capacity
 					var/fallen = 0
 					while(honeycombs.len && amtH) //let's pretend you always grab the frame with the most honeycomb on it
-						var/obj/item/reagent_containers/honeycomb/HC = pick_n_take(honeycombs)
+						var/obj/item/reagent_containers/cup/glass/honeycomb/HC = pick_n_take(honeycombs)
 						if(HC)
 							HC.forceMove(drop_location())
 							amtH--
@@ -255,7 +255,7 @@
 				queen_bee = null
 
 /obj/structure/beebox/deconstruct(disassembled = TRUE)
-	new /obj/item/stack/sheet/mineral/wood (loc, 20)
+	new /obj/item/stack/sheet/wood (loc, 20)
 	for(var/mob/living/simple_animal/hostile/poison/bees/B in bees)
 		if(B.loc == src)
 			B.forceMove(drop_location())
@@ -265,4 +265,10 @@
 	qdel(src)
 
 /obj/structure/beebox/unwrenched
-		anchored = FALSE
+	anchored = FALSE
+
+#undef BEEBOX_MAX_FRAMES
+#undef BEES_RATIO
+#undef BEE_PROB_NEW_BEE
+#undef BEE_RESOURCE_HONEYCOMB_COST
+#undef BEE_RESOURCE_NEW_BEE_COST

@@ -5,8 +5,8 @@
 /area/shuttle
 	name = "Shuttle"
 	requires_power = FALSE
-	dynamic_lighting = DYNAMIC_LIGHTING_FORCED
-	has_gravity = STANDARD_GRAVITY
+	dynamic_lighting = DYNAMIC_LIGHTING_ENABLED
+	default_gravity = STANDARD_GRAVITY
 	always_unpowered = FALSE
 	// Loading the same shuttle map at a different time will produce distinct area instances.
 	area_flags = NONE
@@ -16,6 +16,7 @@
 	airlock_hack_difficulty = AIRLOCK_WIRE_SECURITY_ADVANCED
 	//The mobile port attached to this area
 	var/obj/docking_port/mobile/mobile_port
+	area_limited_icon_smoothing = /area/shuttle
 
 /area/shuttle/Initialize(mapload)
 	if(!canSmoothWithAreas)
@@ -98,7 +99,7 @@
 
 /area/shuttle/hunter
 	name = "Hunter Shuttle"
-	dynamic_lighting = DYNAMIC_LIGHTING_DISABLED
+	requires_power = TRUE
 	canSmoothWithAreas = /area/shuttle/hunter
 
 ////////////////////////////White Ship////////////////////////////
@@ -135,6 +136,7 @@
 	name = "Hyperspace"
 	desc = "Weeeeee"
 	dynamic_lighting = DYNAMIC_LIGHTING_DISABLED
+	fullbright_type = FULLBRIGHT_STARLIGHT
 
 /area/shuttle/custom
 	name = "Custom player shuttle"
@@ -186,6 +188,7 @@
 
 /area/shuttle/escape
 	name = "Emergency Shuttle"
+	camera_networks = list(CAMERA_NETWORK_EVAC)
 
 /area/shuttle/escape/backup
 	name = "Backup Emergency Shuttle"
@@ -229,9 +232,11 @@
 
 /area/shuttle/caravan/syndicate1
 	name = "Syndicate Fighter"
+	camera_networks = list(CAMERA_NETWORK_CARAVAN_SYNDICATE)
 
 /area/shuttle/caravan/syndicate2
 	name = "Syndicate Fighter"
+	camera_networks = list(CAMERA_NETWORK_CARAVAN_SYNDICATE)
 
 /area/shuttle/caravan/syndicate3
 	name = "Syndicate Drop Ship"

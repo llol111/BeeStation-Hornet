@@ -55,13 +55,16 @@
 	name = "heavy laser"
 	icon_state = "beam_heavy"
 
+/obj/effect/projectile/tracer/laser/emitter
+	name = "emitter beam"
+	icon_state = "emitter"
+
 //BEAM RIFLE
 /obj/effect/projectile/tracer/tracer/beam_rifle
 	icon_state = "tracer_beam"
 
 /obj/effect/projectile/tracer/tracer/aiming
 	icon_state = "pixelbeam_greyscale"
-	layer = ABOVE_LIGHTING_LAYER
 	plane = ABOVE_LIGHTING_PLANE
 
 /obj/effect/projectile/tracer/wormhole

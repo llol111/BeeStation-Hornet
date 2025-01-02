@@ -38,6 +38,7 @@
 
 /obj/effect/projectile/proc/apply_vars(angle_override, p_x = 0, p_y = 0, color_override, scaling = 1, new_loc, increment = 0)
 	var/mutable_appearance/look = new(src)
+	look.plane = plane
 	look.pixel_x = p_x
 	look.pixel_y = p_y
 	if(color_override)
@@ -53,6 +54,8 @@
 
 /obj/effect/projectile_lighting
 	var/owner
+
+CREATION_TEST_IGNORE_SUBTYPES(/obj/effect/projectile_lighting)
 
 /obj/effect/projectile_lighting/Initialize(mapload, color, range, intensity, owner_key)
 	. = ..()
