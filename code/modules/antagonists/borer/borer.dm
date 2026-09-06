@@ -9,8 +9,22 @@
  */
 
 #define FORMAT_BORER_CHEMICALS_TEXT(charges) MAPTEXT("<div align='center' valign='middle' style='position:relative; top:0px; left:6px'><font color='#b8e06c'>[round(charges)]</font></div>")
+#define FORMAT_BORER_EVOLUTION_TEXT(points) MAPTEXT("<div align='center' valign='middle' style='position:relative; top:0px; left:6px'><font color='#c792ea'>[round(points)]</font></div>")
 
-/// Borer HUD: the normal living-mob HUD plus a changeling-style chemical reserve display.
+/// Camera concealment uses Bee's established silicon-override system without
+/// digital camouflage's visible "shifting skin" examination tell.
+/datum/element/digital_camo/borer_hiding/on_examine(datum/source, mob/user, list/examine_list)
+	return
+
+/atom/movable/screen/ling/borer_evolution
+	name = "borer evolution points"
+	icon_state = "power_display"
+	screen_loc = "WEST,CENTER-2:15"
+
+/// Borer HUD: the normal living-mob HUD plus changeling-style reserve displays.
+/datum/hud/living/borer
+	var/atom/movable/screen/ling/borer_evolution/evolutiondisplay
+
 /datum/hud/living/borer/New(mob/living/simple_animal/borer/owner)
 	..()
 	lingchemdisplay = new /atom/movable/screen/ling/chems(null, src)
@@ -18,19 +32,31 @@
 	lingchemdisplay.invisibility = 0
 	lingchemdisplay.maptext = FORMAT_BORER_CHEMICALS_TEXT(owner.chemicals)
 	infodisplay += lingchemdisplay
+	evolutiondisplay = new(null, src)
+	evolutiondisplay.invisibility = 0
+	evolutiondisplay.maptext = FORMAT_BORER_EVOLUTION_TEXT(owner.evolution_points)
+	infodisplay += evolutiondisplay
 
 /datum/antagonist/borer
 	name = "Cortical Borer"
 	roundend_category = "cortical borers"
 	antagpanel_category = "Cortical Borer"
+	ui_name = "AntagInfoBorer"
 	show_to_ghosts = TRUE
 	banning_key = ROLE_BORER
 	required_living_playtime = 4
 	leave_behaviour = ANTAGONIST_LEAVE_KEEP
+	/// Shared between the initial antagonist splash and the persistent info panel.
+	var/static/list/briefing = list(
+		"You are a cortical borer!",
+		"You are a \"symbiotic\" organism that thrives in the bodies of organic humanoids. You should endeavour to infest a host and ensure they stay safe at least long enough for you to reproduce - by any means necessary. You do not need to be friends; if push comes to shove, you might even take over temporarily, but you DO need your host to live.",
+		"While inside a host, speaking normally communicates privately with them. Prefix a message with :& to speak over the Cortical Link to every cortical borer.",
+		"Build a full chemical reserve while inside a host, then leave them and use Reproduce. Laying an egg takes five seconds and consumes your entire chemical reserve. The egg must mature in an atmosphere containing both oxygen and plasma before it can hatch.",
+	)
 	/// The borer player's mind may temporarily inhabit a host, so round-end
 	/// reporting must retain a stable reference to the physical parasite.
 	var/datum/weakref/borer_ref
-	var/borer_name = "cortical borer"
+	var/borer_name = "Cortical Borer"
 
 /datum/antagonist/borer/on_gain()
 	var/mob/living/simple_animal/borer/borer = owner.current
@@ -77,11 +103,13 @@
 
 /datum/antagonist/borer/greet()
 	to_chat(owner.current, span_boldnotice("You are a cortical borer!"))
+	to_chat(owner.current, span_boldnotice("While inside a host, speak normally to communicate privately with them. Prefix your message with :& to speak over the Cortical Link to every cortical borer."))
 	owner.announce_objectives()
-	owner.current.client?.tgui_panel?.give_antagonist_popup("Cortical Borer",
-		"You are a cortical borer!\n\
-		You are a \"symbiotic\" organism that thrives in the bodies of organic humanoids. You should endeavour to infest a host and ensure they stay safe at least long enough for you to reproduce - by any means necessary. You do not need to be friends; if push comes to shove, you might even take over temporarily, but you DO need your host to live.\n\
-		Build a full chemical reserve while inside a host, then leave them and use Reproduce. Laying an egg takes five seconds and consumes your entire chemical reserve. The egg must mature in an atmosphere containing both oxygen and plasma before it can hatch.")
+	owner.current.client?.tgui_panel?.give_antagonist_popup("Cortical Borer", briefing.Join("\n\n"))
+
+/datum/antagonist/borer/ui_static_data(mob/user)
+	. = ..()
+	.["briefing"] = briefing
 
 /datum/objective/lay_borer_egg
 	name = "lay a borer egg"
@@ -144,15 +172,17 @@
 			return cyst.borer
 
 /mob/living/simple_animal/borer
-	name = "cortical borer"
-	real_name = "cortical borer"
+	name = "Cortical Borer"
+	real_name = "Cortical Borer"
 	desc = "A small, unsettling parasite with far too many legs."
 	icon = 'icons/mob/borer.dmi'
 	icon_state = "borer"
 	icon_living = "borer"
 	icon_dead = "borer_dead"
 	gender = NEUTER
+	unique_name = TRUE
 	density = FALSE
+	mob_size = MOB_SIZE_TINY
 	pass_flags = PASSTABLE | PASSMOB
 	health = 20
 	maxHealth = 20
@@ -175,6 +205,11 @@
 	/// Chemical reserve. Evolution abilities will spend this rather than host reagents.
 	var/chemicals = 0
 	var/max_chemicals = 100
+	/// Reserve spent when beginning neural domination.
+	var/control_activation_cost = 10
+	/// Gross chemical upkeep per second while controlling a host. Baseline
+	/// regeneration reduces this to a net drain of 1.5 chemicals per second.
+	var/control_chemical_drain = 2.5
 	/// Permanent reproduction tally used by the borer's egg-laying objective.
 	var/eggs_laid = 0
 	/// Progress is deliberately independent of chemicals; it is awarded only while hosted.
@@ -200,6 +235,8 @@
 	var/host_actions_suspended = FALSE
 	/// Whether this detached borer is currently rendered beneath low objects.
 	var/hiding = FALSE
+	/// Whether table cover is currently concealing this borer from silicons.
+	var/camera_hidden = FALSE
 
 /mob/living/simple_animal/borer/Initialize(mapload)
 	. = ..()
@@ -241,7 +278,8 @@
 		/datum/borer_secretion/chest/nutriment, /datum/borer_secretion/arm/iron,
 		/datum/borer_secretion/leg/ephedrine, /datum/borer_secretion/head/mutadone,
 		/datum/borer_secretion/head/rezadone, /datum/borer_secretion/head/morphine,
-		/datum/borer_secretion/head/space_drugs, /datum/borer_secretion/head/synaptizine,
+		/datum/borer_secretion/head/space_drugs, /datum/borer_secretion/head/nicotine,
+		/datum/borer_secretion/head/ethanol, /datum/borer_secretion/head/synaptizine,
 		/datum/borer_secretion/chest/dexalinp, /datum/borer_secretion/chest/potass_iodide,
 		/datum/borer_secretion/chest/capsaicin, /datum/borer_secretion/chest/frostoil,
 		/datum/borer_secretion/chest/lipolicide, /datum/borer_secretion/chest/omnizine,
@@ -269,6 +307,7 @@
 
 /mob/living/simple_animal/borer/Life(delta_time = SSMOBS_DT, times_fired)
 	. = ..()
+	update_camera_hiding()
 	if(!host)
 		return
 	if(host.stat == DEAD && controlling_host)
@@ -285,17 +324,27 @@
 		host_actions_suspended = FALSE
 		update_borer_actions()
 	if(host.stat != DEAD)
-		adjust_chemicals(delta_time * (1 + chemical_regen_bonus))
+		var/chemical_change = delta_time * (1 + chemical_regen_bonus)
+		if(controlling_host)
+			chemical_change -= delta_time * control_chemical_drain
+		adjust_chemicals(chemical_change)
+		if(controlling_host && chemicals <= 0)
+			to_chat(host, span_warning("Your chemical reserve is exhausted, forcing you to relinquish control!"))
+			release_host_control()
+			return
 		for(var/datum/borer_evolution/evolution as anything in available_evolutions)
 			if(evolution.purchased && evolution.is_active(src))
 				evolution.on_life(src, delta_time)
 		if(world.time >= next_evolution_point)
-			evolution_points++
+			adjust_evolution_points(1)
 			next_evolution_point = world.time + 2 MINUTES
 
 /mob/living/simple_animal/borer/Destroy()
 	if(controlling_host)
 		release_host_control()
+	if(camera_hidden)
+		RemoveElement(/datum/element/digital_camo/borer_hiding)
+		camera_hidden = FALSE
 	deactivate_evolutions(host)
 	QDEL_NULL(release_control_action)
 	QDEL_NULL(assume_control_action)
@@ -319,6 +368,20 @@
 	deactivate_evolutions(host)
 	return ..()
 
+/mob/living/simple_animal/borer/Moved(atom/old_loc, movement_dir, forced, list/old_locs, momentum_change = TRUE)
+	. = ..()
+	update_camera_hiding()
+
+/// Keep the normal pipe-network overlay, but do not apply the generic dark
+/// ventcrawl filter. Borers hunt for hosts through vents, and the extra tint
+/// makes otherwise visible people unnecessarily difficult to distinguish.
+/mob/living/simple_animal/borer/update_pipe_vision(full_refresh = FALSE)
+	. = ..()
+	if(!HAS_TRAIT(src, TRAIT_MOVE_VENTCRAWLING) || !istype(loc, /obj/machinery/atmospherics) || !(movement_type & VENTCRAWLING))
+		return
+	var/atom/movable/screen/plane_master/lighting = hud_used?.plane_masters["[LIGHTING_PLANE]"]
+	lighting?.remove_atom_colour(TEMPORARY_COLOUR_PRIORITY, "#4d4d4d")
+
 /// Moves a detached borer beneath tables and other low objects, or restores
 /// its normal rendering layer. Non-detached states clear this silently.
 /mob/living/simple_animal/borer/proc/set_hiding(new_hiding, silent = FALSE)
@@ -329,9 +392,25 @@
 		return TRUE
 	hiding = new_hiding
 	layer = hiding ? ABOVE_NORMAL_TURF_LAYER : initial(layer)
+	update_camera_hiding()
 	if(!silent)
 		to_chat(src, span_notice(hiding ? "You are now hiding." : "You have stopped hiding."))
 	return TRUE
+
+/// Suppress the borer's appearance and silicon HUD markers only when the
+/// layer-based Hide action has real table cover to justify the concealment.
+/mob/living/simple_animal/borer/proc/update_camera_hiding()
+	var/should_hide_from_cameras = FALSE
+	if(hiding && isturf(loc))
+		var/obj/structure/table/covering_table = locate() in loc
+		should_hide_from_cameras = !!covering_table
+	if(should_hide_from_cameras == camera_hidden)
+		return
+	camera_hidden = should_hide_from_cameras
+	if(camera_hidden)
+		AddElement(/datum/element/digital_camo/borer_hiding)
+	else
+		RemoveElement(/datum/element/digital_camo/borer_hiding)
 
 /mob/living/simple_animal/borer/proc/bind_to_host(mob/living/carbon/new_host, obj/item/organ/borer_cyst/new_cyst)
 	if(!ishuman(new_host))
@@ -400,6 +479,8 @@
 		qdel(new_cyst)
 		return FALSE
 	target.visible_message(span_warning("[src] burrows into [target]'s [parse_zone(target_zone)]!"), span_userdanger("Something painfully burrows into your [parse_zone(target_zone)]!"))
+	playsound(target, 'sound/effects/splat.ogg', 40, TRUE)
+	target.Knockdown(1 SECONDS)
 	return TRUE
 
 /mob/living/simple_animal/borer/proc/choose_infestation_target()
@@ -426,14 +507,8 @@
 		controlling_host = FALSE
 		update_borer_actions()
 		return FALSE
-	// This mirrors split-personality's two-way body/backseat handoff.  The
-	// host's mind stays with the borer while the borer player drives the host.
-	var/host_ckey = host.ckey
-	var/datum/mind/host_mind = host.mind
-	host.ckey = ckey
-	host.mind = mind
-	ckey = host_ckey
-	mind = host_mind
+	if(!swap_host_minds())
+		return FALSE
 	controlling_host = FALSE
 	update_borer_actions()
 	to_chat(src, span_notice("You release control of your host."))
@@ -446,16 +521,34 @@
 	if(!client || !host.client)
 		to_chat(src, span_warning("Both you and your host must be conscious players to exchange control."))
 		return FALSE
-	var/host_ckey = host.ckey
-	var/datum/mind/host_mind = host.mind
-	host.ckey = ckey
-	host.mind = mind
-	ckey = host_ckey
-	mind = host_mind
+	if(chemicals < control_activation_cost)
+		to_chat(src, span_warning("You need [control_activation_cost] chemicals to seize control of your host."))
+		return FALSE
+	adjust_chemicals(-control_activation_cost)
+	if(!swap_host_minds())
+		adjust_chemicals(control_activation_cost)
+		return FALSE
 	controlling_host = TRUE
 	update_borer_actions()
-	to_chat(src, span_userdanger("You seize control of your host's body."))
-	to_chat(host, span_userdanger("Your cortical borer has seized control of your body!"))
+	to_chat(host, span_userdanger("You seize control of your host's body. Your chemical reserve begins to drain."))
+	to_chat(src, span_userdanger("Your cortical borer has seized control of your body!"))
+	return TRUE
+
+/// Exchanges the minds occupying the physical borer and host bodies through
+/// Bee's normal transfer path. Directly assigning mind and ckey leaves
+/// mind.current, TGUI ownership, antagonist effects, and HUD state stale.
+/mob/living/simple_animal/borer/proc/swap_host_minds()
+	if(!host || !mind || !host.mind)
+		return FALSE
+	var/datum/mind/borer_body_mind = mind
+	var/datum/mind/host_body_mind = host.mind
+	var/host_body_key = host.key
+	borer_body_mind.transfer_to(host)
+	host_body_mind.transfer_to(src)
+	// Matches the mind-swap spell's fallback in case the second transfer did
+	// not reclaim the key which originally occupied the host body.
+	if(host_body_key)
+		key = host_body_key
 	return TRUE
 
 /mob/living/simple_animal/borer/proc/has_evolution(evolution_type)
@@ -476,7 +569,7 @@
 			continue
 		if(!evolution.can_purchase(src))
 			return FALSE
-		evolution_points -= evolution.cost
+		adjust_evolution_points(-evolution.cost)
 		evolution.on_purchase(src)
 		update_borer_actions()
 		to_chat(src, span_notice("You evolve [evolution.name]."))
@@ -496,6 +589,23 @@
 	if(!display)
 		return
 	display.maptext = FORMAT_BORER_CHEMICALS_TEXT(chemicals)
+	if(controlling_host && host?.client)
+		host.client.screen += display
+
+/// Adjusts earned evolution points and refreshes their HUD counter.
+/mob/living/simple_animal/borer/proc/adjust_evolution_points(amount)
+	if(!isnum(amount))
+		return
+	evolution_points = max(0, evolution_points + amount)
+	update_evolution_hud()
+
+/// Refreshes the evolution-point counter, including during host domination.
+/mob/living/simple_animal/borer/proc/update_evolution_hud()
+	var/datum/hud/living/borer/borer_hud = hud_used
+	var/atom/movable/screen/ling/borer_evolution/display = borer_hud?.evolutiondisplay
+	if(!display)
+		return
+	display.maptext = FORMAT_BORER_EVOLUTION_TEXT(evolution_points)
 	if(controlling_host && host?.client)
 		host.client.screen += display
 
@@ -552,6 +662,7 @@
 	for(var/datum/borer_evolution/evolution as anything in available_evolutions)
 		evolution.update_action_visibility(src)
 	update_chemical_hud()
+	update_evolution_hud()
 
 /mob/living/simple_animal/borer/say(message, bubble_type, list/spans = list(), sanitize = TRUE, datum/language/language, ignore_spam = FALSE, forced, filterproof = FALSE, message_range = 7, datum/saymode/saymode, list/message_mods = list())
 	if(!host)
@@ -564,14 +675,20 @@
 		var/linked_message = trim(copytext_char(message, 3))
 		if(!linked_message)
 			return
+		var/list/borer_recipients = list()
 		for(var/mob/living/simple_animal/borer/other_borer in GLOB.mob_living_list)
-			to_chat(other_borer, span_notice("<b>Cortical Link:</b> [real_name] says, \"[linked_message]\""))
+			borer_recipients += other_borer
+		var/rendered_link = span_corticallink("<b>Cortical Link:</b> [real_name] says, \"[linked_message]\"")
+		log_talk(linked_message, LOG_SAY, tag = "cortical link")
+		relay_to_list_and_observers(rendered_link, borer_recipients, src)
 		return
 	to_chat(host, span_notice("<b>A voice in your mind:</b> \"[message]\""))
 	for(var/mob/living/simple_animal/borer/other_borer in host.get_cortical_borers())
 		if(other_borer != src)
 			to_chat(other_borer, span_notice("<b>[real_name]</b> speaks within [host]: \"[message]\""))
 	to_chat(src, span_notice("You speak within [host]: \"[message]\""))
+	log_directed_talk(src, host, message, LOG_SAY, "borer host speech")
+	send_to_observers(span_notice("<b>[real_name]</b> speaks within <b>[host.real_name]</b>: \"[message]\""), src)
 	return TRUE
 
 /mob/living/simple_animal/borer/verb/infest()
@@ -647,6 +764,7 @@
 	visible_message(span_warning("[src] expels a small, gelatinous egg!"))
 
 #undef FORMAT_BORER_CHEMICALS_TEXT
+#undef FORMAT_BORER_EVOLUTION_TEXT
 
 /obj/item/food/borer_egg
 	name = "borer egg"

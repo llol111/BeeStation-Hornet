@@ -20,6 +20,7 @@
 	if(!ui)
 		ui = new(user, src, "BorerEvolution", "Borer Evolution")
 		ui.open()
+		ui.set_autoupdate(TRUE)
 
 /datum/borer_evolution_menu/ui_data(mob/user)
 	var/list/data = list()
@@ -136,7 +137,7 @@
 /datum/action/innate/borer_assume_control
 	parent_type = /datum/action/innate/borer_core
 	name = "Assume Host Control"
-	desc = "Seize control of the nervous system of your head host."
+	desc = "Spend 10 chemicals to seize control of your head host. Your reserve continuously drains until you release control or it reaches zero."
 	button_icon_state = "mindshield"
 
 /datum/action/innate/borer_assume_control/on_activate()
@@ -415,7 +416,7 @@
 /datum/borer_evolution/chemical/head/neurochemical_control
 	name = "Neurochemical Control"
 	desc = "Learn to manipulate a host's nervous system with sedatives and stimulants."
-	helptext = "Unlocks Morphine, Space Drugs, and Synaptizine. Head cyst only."
+	helptext = "Unlocks Morphine, Space Drugs, Nicotine, Ethanol, and Synaptizine. Head cyst only."
 
 /datum/borer_evolution/chemical/chest/respiratory_radiation_care
 	name = "Respiratory & Radiation Care"
@@ -436,7 +437,7 @@
 /datum/borer_evolution/neural_domination
 	name = "Neural Domination"
 	desc = "Develop control filaments capable of briefly taking over a host's body."
-	helptext = "Unlocks voluntary host takeover. Head cyst only."
+	helptext = "Head cyst only. Costs 10 chemicals to begin and continuously drains your reserve; control ends when it reaches zero."
 	cost = 2
 	required_zone = BODY_ZONE_HEAD
 

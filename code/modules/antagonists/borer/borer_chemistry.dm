@@ -107,6 +107,18 @@
 	chemical_cost = 15
 	unlock_type = /datum/borer_evolution/chemical/head/neurochemical_control
 
+/datum/borer_secretion/head/nicotine
+	name = "Nicotine"
+	reagent_type = /datum/reagent/drug/nicotine
+	chemical_cost = 15
+	unlock_type = /datum/borer_evolution/chemical/head/neurochemical_control
+
+/datum/borer_secretion/head/ethanol
+	name = "Ethanol"
+	reagent_type = /datum/reagent/consumable/ethanol
+	chemical_cost = 15
+	unlock_type = /datum/borer_evolution/chemical/head/neurochemical_control
+
 /datum/borer_secretion/head/synaptizine
 	name = "Synaptizine"
 	reagent_type = /datum/reagent/medicine/synaptizine
